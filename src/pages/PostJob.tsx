@@ -212,14 +212,14 @@ const PostJobPage: React.FC = () => {
               <div className="space-y-2">
                 <Label>Country Preference</Label>
                 <Select
-                  value={formData.countryPreference}
-                  onValueChange={v => setFormData({ ...formData, countryPreference: v })}
+                  value={formData.countryPreference || 'all'}
+                  onValueChange={v => setFormData({ ...formData, countryPreference: v === 'all' ? '' : v })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Open to all countries" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Open to all countries</SelectItem>
+                    <SelectItem value="all">Open to all countries</SelectItem>
                     {COUNTRIES.map(country => (
                       <SelectItem key={country.code} value={country.name}>
                         {country.flag} {country.name}
