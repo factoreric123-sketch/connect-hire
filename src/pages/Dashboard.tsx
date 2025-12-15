@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import WorkerCard from '@/components/workers/WorkerCard';
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
@@ -17,14 +17,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AvatarUpload } from '@/components/ui/avatar-upload';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockWorkers, mockJobs, SKILLS, COUNTRIES } from '@/data/mockData';
-import { X, Plus, User, Briefcase, Heart, MessageSquare } from 'lucide-react';
+import { workerService, jobService, savedWorkerService } from '@/lib/database';
+import { SKILLS, COUNTRIES } from '@/data/mockData';
+import { X, Plus, User, Briefcase, Heart, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { WorkerProfile, Job } from '@/types';
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, workerProfile, employerProfile, updateWorkerProfile, updateEmployerProfile, savedWorkers } = useAuth();
+  const { user } = useAuth();
 
   if (!user) {
     return (
@@ -46,8 +49,12 @@ const DashboardPage: React.FC = () => {
 };
 
 const WorkerDashboard: React.FC = () => {
-  const { workerProfile, updateWorkerProfile } = useAuth();
+  const navigate = useNavigate();
+  const { workerProfile, updateWorkerProfile, user } = useAuth();
   const [editing, setEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(true);
   const [formData, setFormData] = useState({
     name: workerProfile?.name || '',
     headline: workerProfile?.headline || '',
@@ -57,7 +64,54 @@ const WorkerDashboard: React.FC = () => {
     hourlyRateMin: workerProfile?.hourlyRateMin?.toString() || '1',
     hourlyRateMax: workerProfile?.hourlyRateMax?.toString() || '3',
     availabilityHours: workerProfile?.availabilityHours?.toString() || '8',
+    avatar: workerProfile?.avatar || '',
   });
+
+  useEffect(() => {
+    if (workerProfile) {
+      setFormData({
+        name: workerProfile.name,
+        headline: workerProfile.headline,
+        bio: workerProfile.bio,
+        country: workerProfile.countryCode,
+        skills: workerProfile.skills,
+        hourlyRateMin: workerProfile.hourlyRateMin.toString(),
+        hourlyRateMax: workerProfile.hourlyRateMax.toString(),
+        availabilityHours: workerProfile.availabilityHours.toString(),
+        avatar: workerProfile.avatar || '',
+      });
+    }
+  }, [workerProfile]);
+
+  useEffect(() => {
+    loadJobs();
+  }, []);
+
+  const loadJobs = async () => {
+    try {
+      setIsLoadingJobs(true);
+      const data = await jobService.getAll({ limit: 10 });
+      setJobs(data.map((j: any) => ({
+        id: j.id,
+        employerId: j.employer_id,
+        employerName: j.employer?.company_name || 'Unknown',
+        title: j.title,
+        description: j.description,
+        skills: j.skills,
+        hourlyRateMin: Number(j.hourly_rate_min),
+        hourlyRateMax: Number(j.hourly_rate_max),
+        availabilityHours: j.availability_hours,
+        countryPreference: j.country_preference,
+        createdAt: j.created_at,
+        isActive: j.is_active,
+      })));
+    } catch (error) {
+      console.error('Error loading jobs:', error);
+      toast.error('Failed to load jobs');
+    } finally {
+      setIsLoadingJobs(false);
+    }
+  };
 
   const addSkill = (skill: string) => {
     if (!formData.skills.includes(skill)) {
@@ -69,22 +123,37 @@ const WorkerDashboard: React.FC = () => {
     setFormData({ ...formData, skills: formData.skills.filter(s => s !== skill) });
   };
 
-  const handleSave = () => {
-    const country = COUNTRIES.find(c => c.code === formData.country);
-    updateWorkerProfile({
-      name: formData.name,
-      headline: formData.headline,
-      bio: formData.bio,
-      countryCode: formData.country,
-      country: country?.name || '',
-      skills: formData.skills,
-      hourlyRateMin: parseFloat(formData.hourlyRateMin) || 1,
-      hourlyRateMax: parseFloat(formData.hourlyRateMax) || 3,
-      availabilityHours: parseInt(formData.availabilityHours) || 8,
-      lastActive: new Date().toISOString(),
-    });
-    setEditing(false);
-    toast.success('Profile updated!');
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      const country = COUNTRIES.find(c => c.code === formData.country);
+      await updateWorkerProfile({
+        name: formData.name,
+        headline: formData.headline,
+        bio: formData.bio,
+        countryCode: formData.country,
+        country: country?.name || '',
+        skills: formData.skills,
+        hourlyRateMin: parseFloat(formData.hourlyRateMin) || 1,
+        hourlyRateMax: parseFloat(formData.hourlyRateMax) || 3,
+        availabilityHours: parseInt(formData.availabilityHours) || 8,
+        avatar: formData.avatar,
+      });
+      setEditing(false);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAvatarUpload = async (url: string) => {
+    setFormData({ ...formData, avatar: url });
+    try {
+      await updateWorkerProfile({ avatar: url });
+    } catch (error) {
+      console.error('Error updating avatar:', error);
+    }
   };
 
   return (
@@ -115,15 +184,32 @@ const WorkerDashboard: React.FC = () => {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>Your Profile</CardTitle>
-                  <CardDescription>This is what employers will see</CardDescription>
+                  <p className="text-sm text-muted-foreground mt-1">This is what employers will see</p>
                 </div>
-                <Button onClick={() => editing ? handleSave() : setEditing(true)}>
-                  {editing ? 'Save Changes' : 'Edit Profile'}
+                <Button onClick={() => editing ? handleSave() : setEditing(true)} disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    editing ? 'Save Changes' : 'Edit Profile'
+                  )}
                 </Button>
               </CardHeader>
               <CardContent className="space-y-6">
                 {editing ? (
                   <>
+                    {user && workerProfile && (
+                      <div className="flex justify-center mb-4">
+                        <AvatarUpload
+                          currentAvatar={formData.avatar}
+                          onUploadComplete={handleAvatarUpload}
+                          userId={user.id}
+                          name={formData.name}
+                        />
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label>Full Name</Label>
                       <Input
@@ -235,11 +321,17 @@ const WorkerDashboard: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="jobs">
-            <div className="grid gap-4">
-              {mockJobs.filter(j => j.isActive).map(job => (
-                <JobCard key={job.id} job={job} />
-              ))}
-            </div>
+            {isLoadingJobs ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {jobs.map(job => (
+                  <JobCard key={job.id} job={job} />
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
@@ -249,11 +341,81 @@ const WorkerDashboard: React.FC = () => {
 
 const EmployerDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { savedWorkers } = useAuth();
-  
-  const savedWorkerProfiles = mockWorkers.filter(w => 
-    savedWorkers.some(sw => sw.workerId === w.id)
-  );
+  const { employerProfile } = useAuth();
+  const [savedWorkers, setSavedWorkers] = useState<WorkerProfile[]>([]);
+  const [myJobs, setMyJobs] = useState<Job[]>([]);
+  const [isLoadingSaved, setIsLoadingSaved] = useState(true);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(true);
+
+  useEffect(() => {
+    if (employerProfile) {
+      loadSavedWorkers();
+      loadMyJobs();
+    }
+  }, [employerProfile]);
+
+  const loadSavedWorkers = async () => {
+    if (!employerProfile) return;
+    
+    try {
+      setIsLoadingSaved(true);
+      const data = await savedWorkerService.getByEmployerId(employerProfile.id);
+      const workers = data.map((item: any) => ({
+        id: item.worker.id,
+        userId: item.worker.user_id,
+        name: item.worker.name,
+        avatar: item.worker.avatar_url || undefined,
+        country: item.worker.country,
+        countryCode: item.worker.country_code,
+        headline: item.worker.headline,
+        skills: item.worker.skills,
+        hourlyRateMin: Number(item.worker.hourly_rate_min),
+        hourlyRateMax: Number(item.worker.hourly_rate_max),
+        availabilityHours: item.worker.availability_hours,
+        availabilityType: item.worker.availability_type,
+        bio: item.worker.bio,
+        lastActive: item.worker.last_active,
+        isVerified: item.worker.is_verified,
+        reviewCount: item.worker.review_count,
+        averageRating: Number(item.worker.average_rating),
+      }));
+      setSavedWorkers(workers);
+    } catch (error) {
+      console.error('Error loading saved workers:', error);
+      toast.error('Failed to load saved workers');
+    } finally {
+      setIsLoadingSaved(false);
+    }
+  };
+
+  const loadMyJobs = async () => {
+    if (!employerProfile) return;
+    
+    try {
+      setIsLoadingJobs(true);
+      const data = await jobService.getByEmployerId(employerProfile.id);
+      const jobs = data.map((j: any) => ({
+        id: j.id,
+        employerId: j.employer_id,
+        employerName: employerProfile.companyName,
+        title: j.title,
+        description: j.description,
+        skills: j.skills,
+        hourlyRateMin: Number(j.hourly_rate_min),
+        hourlyRateMax: Number(j.hourly_rate_max),
+        availabilityHours: j.availability_hours,
+        countryPreference: j.country_preference,
+        createdAt: j.created_at,
+        isActive: j.is_active,
+      }));
+      setMyJobs(jobs);
+    } catch (error) {
+      console.error('Error loading jobs:', error);
+      toast.error('Failed to load your jobs');
+    } finally {
+      setIsLoadingJobs(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -274,18 +436,22 @@ const EmployerDashboard: React.FC = () => {
           <TabsList>
             <TabsTrigger value="saved">
               <Heart className="h-4 w-4 mr-2" />
-              Saved Workers ({savedWorkerProfiles.length})
+              Saved Workers ({savedWorkers.length})
             </TabsTrigger>
             <TabsTrigger value="jobs">
               <Briefcase className="h-4 w-4 mr-2" />
-              My Jobs
+              My Jobs ({myJobs.length})
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="saved">
-            {savedWorkerProfiles.length > 0 ? (
+            {isLoadingSaved ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : savedWorkers.length > 0 ? (
               <div className="grid gap-4">
-                {savedWorkerProfiles.map(worker => (
+                {savedWorkers.map(worker => (
                   <WorkerCard key={worker.id} worker={worker} />
                 ))}
               </div>
@@ -304,19 +470,31 @@ const EmployerDashboard: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="jobs">
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Briefcase className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Post your first job</h3>
-                <p className="text-muted-foreground mb-4">
-                  Create a job listing to attract talented workers
-                </p>
-                <Button onClick={() => navigate('/post-job')}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Post a Job
-                </Button>
-              </CardContent>
-            </Card>
+            {isLoadingJobs ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : myJobs.length > 0 ? (
+              <div className="grid gap-4">
+                {myJobs.map(job => (
+                  <JobCard key={job.id} job={job} />
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Briefcase className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Post your first job</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Create a job listing to attract talented workers
+                  </p>
+                  <Button onClick={() => navigate('/post-job')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Post a Job
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>

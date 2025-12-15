@@ -9,12 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserType } from '@/types';
 import { toast } from 'sonner';
-import { User, Briefcase } from 'lucide-react';
+import { User, Briefcase, Loader2 } from 'lucide-react';
 
 const AuthPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, signup, user } = useAuth();
+  const { login, signup, user, isLoading: authLoading } = useAuth();
 
   const initialMode = searchParams.get('mode') || 'login';
   const initialType = (searchParams.get('type') as UserType) || 'employer';
@@ -30,10 +30,10 @@ const AuthPage: React.FC = () => {
 
   // Redirect if already logged in
   React.useEffect(() => {
-    if (user) {
+    if (user && !authLoading) {
       navigate('/dashboard');
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,26 +43,39 @@ const AuthPage: React.FC = () => {
       let success: boolean;
       
       if (mode === 'login') {
-        success = await login(formData.email, formData.password, userType);
+        success = await login(formData.email, formData.password);
       } else {
         if (!formData.name) {
           toast.error('Please enter your name');
           setIsLoading(false);
           return;
         }
+        if (formData.password.length < 6) {
+          toast.error('Password must be at least 6 characters');
+          setIsLoading(false);
+          return;
+        }
         success = await signup(formData.email, formData.password, userType, formData.name);
       }
 
-      if (success) {
-        toast.success(mode === 'login' ? 'Welcome back!' : 'Account created successfully!');
+      if (success && mode === 'login') {
         navigate('/dashboard');
       }
     } catch (error) {
+      console.error('Auth error:', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -88,37 +101,39 @@ const AuthPage: React.FC = () => {
               </TabsList>
             </Tabs>
 
-            {/* User Type Selection */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <button
-                type="button"
-                onClick={() => setUserType('employer')}
-                className={`p-4 rounded-lg border-2 transition-colors ${
-                  userType === 'employer'
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-muted-foreground'
-                }`}
-              >
-                <Briefcase className={`h-6 w-6 mx-auto mb-2 ${userType === 'employer' ? 'text-primary' : 'text-muted-foreground'}`} />
-                <p className={`text-sm font-medium ${userType === 'employer' ? 'text-primary' : 'text-muted-foreground'}`}>
-                  I'm Hiring
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setUserType('worker')}
-                className={`p-4 rounded-lg border-2 transition-colors ${
-                  userType === 'worker'
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-muted-foreground'
-                }`}
-              >
-                <User className={`h-6 w-6 mx-auto mb-2 ${userType === 'worker' ? 'text-primary' : 'text-muted-foreground'}`} />
-                <p className={`text-sm font-medium ${userType === 'worker' ? 'text-primary' : 'text-muted-foreground'}`}>
-                  I'm a Worker
-                </p>
-              </button>
-            </div>
+            {/* User Type Selection - Only for Signup */}
+            {mode === 'signup' && (
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setUserType('employer')}
+                  className={`p-4 rounded-lg border-2 transition-colors ${
+                    userType === 'employer'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-muted-foreground'
+                  }`}
+                >
+                  <Briefcase className={`h-6 w-6 mx-auto mb-2 ${userType === 'employer' ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <p className={`text-sm font-medium ${userType === 'employer' ? 'text-primary' : 'text-muted-foreground'}`}>
+                    I'm Hiring
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserType('worker')}
+                  className={`p-4 rounded-lg border-2 transition-colors ${
+                    userType === 'worker'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-muted-foreground'
+                  }`}
+                >
+                  <User className={`h-6 w-6 mx-auto mb-2 ${userType === 'worker' ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <p className={`text-sm font-medium ${userType === 'worker' ? 'text-primary' : 'text-muted-foreground'}`}>
+                    I'm a Worker
+                  </p>
+                </button>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'signup' && (
@@ -158,13 +173,32 @@ const AuthPage: React.FC = () => {
                   value={formData.password}
                   onChange={e => setFormData({ ...formData, password: e.target.value })}
                   required
+                  minLength={6}
                 />
+                {mode === 'signup' && (
+                  <p className="text-xs text-muted-foreground">
+                    Must be at least 6 characters
+                  </p>
+                )}
               </div>
 
               <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                {isLoading ? 'Please wait...' : mode === 'login' ? 'Log In' : 'Create Account'}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Please wait...
+                  </>
+                ) : (
+                  mode === 'login' ? 'Log In' : 'Create Account'
+                )}
               </Button>
             </form>
+
+            {mode === 'signup' && (
+              <p className="mt-4 text-xs text-center text-muted-foreground">
+                By signing up, you agree to our Terms of Service and Privacy Policy
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

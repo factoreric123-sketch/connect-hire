@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import JobCard from '@/components/jobs/JobCard';
 import { Input } from '@/components/ui/input';
@@ -10,41 +10,56 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { mockJobs, SKILLS } from '@/data/mockData';
-import { Search } from 'lucide-react';
+import { jobService } from '@/lib/database';
+import { Job } from '@/types';
+import { SKILLS } from '@/data/mockData';
+import { Search, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const JobBoardPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [skillFilter, setSkillFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('newest');
+  const [sortBy, setSortBy] = useState<'newest' | 'rate-high' | 'rate-low'>('newest');
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredJobs = useMemo(() => {
-    let jobs = [...mockJobs].filter(job => job.isActive);
-
-    if (search) {
-      const searchLower = search.toLowerCase();
-      jobs = jobs.filter(
-        job =>
-          job.title.toLowerCase().includes(searchLower) ||
-          job.description.toLowerCase().includes(searchLower) ||
-          job.skills.some(s => s.toLowerCase().includes(searchLower))
-      );
-    }
-
-    if (skillFilter && skillFilter !== 'all') {
-      jobs = jobs.filter(job => job.skills.includes(skillFilter));
-    }
-
-    if (sortBy === 'newest') {
-      jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    } else if (sortBy === 'rate-high') {
-      jobs.sort((a, b) => b.hourlyRateMax - a.hourlyRateMax);
-    } else if (sortBy === 'rate-low') {
-      jobs.sort((a, b) => a.hourlyRateMin - b.hourlyRateMin);
-    }
-
-    return jobs;
+  useEffect(() => {
+    loadJobs();
   }, [search, skillFilter, sortBy]);
+
+  const loadJobs = async () => {
+    try {
+      setIsLoading(true);
+      const data = await jobService.getAll({
+        search,
+        skills: skillFilter !== 'all' ? skillFilter : undefined,
+        sortBy,
+        limit: 50,
+      });
+
+      const convertedJobs: Job[] = data.map((j: any) => ({
+        id: j.id,
+        employerId: j.employer_id,
+        employerName: j.employer?.company_name || 'Unknown',
+        title: j.title,
+        description: j.description,
+        skills: j.skills,
+        hourlyRateMin: Number(j.hourly_rate_min),
+        hourlyRateMax: Number(j.hourly_rate_max),
+        availabilityHours: j.availability_hours,
+        countryPreference: j.country_preference,
+        createdAt: j.created_at,
+        isActive: j.is_active,
+      }));
+
+      setJobs(convertedJobs);
+    } catch (error) {
+      console.error('Error loading jobs:', error);
+      toast.error('Failed to load jobs');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -54,7 +69,7 @@ const JobBoardPage: React.FC = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Job Board</h1>
           <p className="text-muted-foreground">
-            Browse {mockJobs.filter(j => j.isActive).length} open positions from employers worldwide
+            Browse open positions from employers worldwide
           </p>
         </div>
 
@@ -83,7 +98,7 @@ const JobBoardPage: React.FC = () => {
             </SelectContent>
           </Select>
 
-          <Select value={sortBy} onValueChange={setSortBy}>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
@@ -111,12 +126,16 @@ const JobBoardPage: React.FC = () => {
 
         {/* Results */}
         <p className="text-sm text-muted-foreground mb-4">
-          Showing {filteredJobs.length} job{filteredJobs.length !== 1 ? 's' : ''}
+          {isLoading ? 'Loading...' : `Showing ${jobs.length} job${jobs.length !== 1 ? 's' : ''}`}
         </p>
 
-        {filteredJobs.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : jobs.length > 0 ? (
           <div className="grid gap-4">
-            {filteredJobs.map(job => (
+            {jobs.map(job => (
               <JobCard key={job.id} job={job} />
             ))}
           </div>

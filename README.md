@@ -1,73 +1,205 @@
-# Welcome to your Lovable project
+# ConnectWork - Remote Worker Connector Platform
 
-## Project info
+A modern, scalable platform for connecting employers with remote workers for simple, repeatable virtual tasks.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Overview
 
-## How can I edit this code?
+ConnectWork is a **connector-only platform** that facilitates discovery and communication between employers and remote workers. The platform does not handle payments, contracts, or employment - it exists solely to help people find each other and connect.
 
-There are several ways of editing your application.
+### Key Features
 
-**Use Lovable**
+- **For Workers:**
+  - Create detailed profiles with skills, availability, and preferred rates
+  - Browse job opportunities from employers worldwide
+  - Message employers directly about opportunities
+  - Build reputation through verified reviews
+  - Upload profile pictures
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- **For Employers:**
+  - Search and filter workers by country, skills, availability, and rate
+  - Post job listings with detailed requirements
+  - Save interesting worker profiles for later
+  - Message workers directly to discuss projects
+  - View worker reviews and ratings
 
-Changes made via Lovable will be committed automatically to this repo.
+- **Core Functionality:**
+  - Real-time messaging between employers and workers
+  - Advanced search and filtering
+  - Responsive design for all devices
+  - Fast, scalable architecture
+  - Secure authentication and data privacy
 
-**Use your preferred IDE**
+## Technology Stack
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- **Frontend:** React 18 + TypeScript + Vite
+- **UI Framework:** Tailwind CSS + shadcn/ui components
+- **Backend:** Supabase (PostgreSQL + Auth + Storage + Realtime)
+- **State Management:** React Context + TanStack Query
+- **Routing:** React Router v6
+- **Form Handling:** React Hook Form + Zod validation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Quick Start
 
-Follow these steps:
+See [SETUP.md](./SETUP.md) for detailed setup instructions.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```bash
+# Install dependencies
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Set up environment variables
+# Copy .env.example to .env and fill in your Supabase credentials
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Run development server
 npm run dev
+
+# Build for production
+npm run build
 ```
 
-**Edit a file directly in GitHub**
+## Project Structure
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```
+/workspace
+├── src/
+│   ├── components/         # React components
+│   │   ├── ui/            # shadcn/ui components
+│   │   ├── workers/       # Worker-related components
+│   │   ├── jobs/          # Job-related components
+│   │   ├── reviews/       # Review components
+│   │   └── layout/        # Layout components
+│   ├── contexts/          # React contexts (Auth)
+│   ├── hooks/             # Custom React hooks
+│   ├── lib/               # Utility libraries
+│   │   ├── database.ts    # Database service layer
+│   │   ├── database.types.ts  # TypeScript types
+│   │   ├── storage.ts     # File storage utilities
+│   │   └── validation.ts  # Form validation
+│   ├── pages/             # Page components
+│   │   ├── Index.tsx      # Landing page
+│   │   ├── Auth.tsx       # Authentication
+│   │   ├── Dashboard.tsx  # User dashboard
+│   │   ├── WorkerSearch.tsx  # Browse workers
+│   │   ├── WorkerProfile.tsx # Worker profile view
+│   │   ├── JobBoard.tsx   # Browse jobs
+│   │   ├── JobDetail.tsx  # Job detail view
+│   │   ├── PostJob.tsx    # Create job listing
+│   │   └── Messages.tsx   # Messaging interface
+│   ├── types/             # TypeScript type definitions
+│   └── integrations/      # Third-party integrations
+│       └── supabase/      # Supabase client
+├── supabase/
+│   └── migrations/        # Database migrations
+├── public/                # Static assets
+└── ...config files
+```
 
-**Use GitHub Codespaces**
+## Database Schema
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+The platform uses PostgreSQL with the following main tables:
 
-## What technologies are used for this project?
+- `user_profiles` - User accounts (extends Supabase auth)
+- `worker_profiles` - Worker profile data
+- `employer_profiles` - Employer profile data
+- `jobs` - Job listings
+- `reviews` - Worker reviews
+- `conversations` - Message conversations
+- `messages` - Individual messages
+- `saved_workers` - Saved/bookmarked workers
 
-This project is built with:
+All tables have Row Level Security (RLS) enabled for data privacy.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Key Design Principles
 
-## How can I deploy this project?
+1. **Neutral Connection Layer:** The platform facilitates connections but doesn't interfere with work arrangements
+2. **Low Friction:** Simple signup, easy profile creation, instant messaging
+3. **Fast Discovery:** Advanced filtering and search to find matches quickly
+4. **Transparency:** Clear information about skills, rates, and availability
+5. **Scalability:** Built to handle high volumes with proper indexing and pagination
+6. **Privacy:** Users control their data with secure authentication
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Development
 
-## Can I connect a custom domain to my Lovable project?
+```bash
+# Run linter
+npm run lint
 
-Yes, you can!
+# Build for development (with source maps)
+npm run build:dev
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+# Preview production build
+npm run preview
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Deployment
+
+The application is designed to be deployed as a static site to any hosting platform:
+
+- Vercel (recommended)
+- Netlify
+- Cloudflare Pages
+- AWS S3 + CloudFront
+- Any static hosting service
+
+## Environment Variables
+
+Required environment variables:
+
+```env
+VITE_SUPABASE_PROJECT_ID=your_project_id
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_public_key
+```
+
+## Features for Scale
+
+- **Database Indexing:** All frequently queried columns are indexed
+- **Pagination:** Built-in pagination for large datasets
+- **Real-time Updates:** Efficient message delivery using Supabase Realtime
+- **CDN Caching:** Profile images cached via Supabase CDN
+- **Optimistic Updates:** UI updates before server confirmation
+- **Query Optimization:** Efficient SQL queries with proper joins
+
+## Important Notes
+
+1. **No Payment Processing:** The platform does not handle money or transactions
+2. **No Contract Management:** All agreements are between employer and worker
+3. **No Work Tracking:** Hours, deliverables, and completion are off-platform
+4. **No Dispute Resolution:** Parties resolve issues directly
+5. **Connection Only:** The platform's role ends when parties connect
+
+## Security
+
+- Row Level Security (RLS) on all database tables
+- Secure authentication via Supabase Auth
+- JWT-based session management
+- Input validation and sanitization
+- Protected API routes
+- CORS configuration
+- Rate limiting (via Supabase)
+
+## License
+
+MIT License - See LICENSE file for details
+
+## Contributing
+
+This is a demonstration project. For production use, please review and customize according to your needs.
+
+## Support
+
+For setup help, see [SETUP.md](./SETUP.md)
+
+## Roadmap Ideas
+
+- Email notifications for new messages
+- Worker portfolio/samples
+- Advanced search filters
+- Video profiles
+- Skill verification badges
+- Multi-language support
+- Mobile apps (React Native)
+- Analytics dashboard
+
+---
+
+**Remember:** ConnectWork is a connector platform. All work arrangements, payments, and agreements happen off-platform between the two parties directly.

@@ -1,26 +1,137 @@
-import React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import ReviewCard from '@/components/reviews/ReviewCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { mockWorkers, mockReviews, getCountryFlag, formatLastActive } from '@/data/mockData';
+import { workerService, reviewService, employerService, conversationService } from '@/lib/database';
+import { getCountryFlag, formatLastActive } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
+import { WorkerProfile, Review } from '@/types';
 import { 
   Star, Clock, CheckCircle, Heart, MessageSquare, 
-  ArrowLeft, MapPin, Calendar 
+  ArrowLeft, Calendar, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const WorkerProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, isWorkerSaved, saveWorker, unsaveWorker } = useAuth();
+  const { user, isWorkerSaved, saveWorker, unsaveWorker, employerProfile } = useAuth();
   
-  const worker = mockWorkers.find(w => w.id === id);
-  const reviews = mockReviews.filter(r => r.workerId === id);
+  const [worker, setWorker] = useState<WorkerProfile | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isContacting, setIsContacting] = useState(false);
+
+  useEffect(() => {
+    if (id) {
+      loadWorkerProfile(id);
+    }
+  }, [id]);
+
+  const loadWorkerProfile = async (workerId: string) => {
+    try {
+      setIsLoading(true);
+      const [workerData, reviewData] = await Promise.all([
+        workerService.getById(workerId),
+        reviewService.getByWorkerId(workerId),
+      ]);
+
+      setWorker({
+        id: workerData.id,
+        userId: workerData.user_id,
+        name: workerData.name,
+        avatar: workerData.avatar_url || undefined,
+        country: workerData.country,
+        countryCode: workerData.country_code,
+        headline: workerData.headline,
+        skills: workerData.skills,
+        hourlyRateMin: Number(workerData.hourly_rate_min),
+        hourlyRateMax: Number(workerData.hourly_rate_max),
+        availabilityHours: workerData.availability_hours,
+        availabilityType: workerData.availability_type,
+        bio: workerData.bio,
+        lastActive: workerData.last_active,
+        isVerified: workerData.is_verified,
+        reviewCount: workerData.review_count,
+        averageRating: Number(workerData.average_rating),
+      });
+
+      setReviews(reviewData.map((r: any) => ({
+        id: r.id,
+        workerId: r.worker_id,
+        employerId: r.employer_id,
+        employerName: r.employer?.company_name || 'Anonymous',
+        rating: r.rating,
+        comment: r.comment,
+        createdAt: r.created_at,
+      })));
+    } catch (error) {
+      console.error('Error loading worker profile:', error);
+      toast.error('Failed to load worker profile');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const isSaved = worker ? isWorkerSaved(worker.id) : false;
+
+  const handleSave = async () => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    if (!worker) return;
+
+    try {
+      setIsSaving(true);
+      if (isSaved) {
+        await unsaveWorker(worker.id);
+      } else {
+        await saveWorker(worker.id);
+      }
+    } catch (error) {
+      console.error('Error saving worker:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleContact = async () => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    if (!worker || !employerProfile) {
+      toast.error('You must be logged in as an employer to contact workers');
+      return;
+    }
+
+    try {
+      setIsContacting(true);
+      const conversation = await conversationService.getOrCreate(worker.id, employerProfile.id);
+      navigate(`/messages?conversation=${conversation.id}`);
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      toast.error('Failed to start conversation');
+    } finally {
+      setIsContacting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container py-12 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   if (!worker) {
     return (
@@ -33,29 +144,6 @@ const WorkerProfilePage: React.FC = () => {
       </div>
     );
   }
-
-  const handleSave = () => {
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
-    if (isSaved) {
-      unsaveWorker(worker.id);
-      toast.success('Removed from saved workers');
-    } else {
-      saveWorker(worker.id);
-      toast.success('Worker saved!');
-    }
-  };
-
-  const handleContact = () => {
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
-    navigate('/messages', { state: { workerId: worker.id } });
-    toast.success('Starting conversation...');
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -123,7 +211,7 @@ const WorkerProfilePage: React.FC = () => {
                 <CardTitle>About</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground whitespace-pre-wrap">{worker.bio}</p>
+                <p className="text-muted-foreground whitespace-pre-wrap">{worker.bio || 'No bio provided yet.'}</p>
               </CardContent>
             </Card>
 
@@ -175,12 +263,30 @@ const WorkerProfilePage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Button className="w-full" size="lg" onClick={handleContact}>
-                    <MessageSquare className="h-4 w-4 mr-2" />
+                  <Button 
+                    className="w-full" 
+                    size="lg" 
+                    onClick={handleContact}
+                    disabled={isContacting}
+                  >
+                    {isContacting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                    )}
                     Contact Worker
                   </Button>
-                  <Button variant="outline" className="w-full" onClick={handleSave}>
-                    <Heart className={`h-4 w-4 mr-2 ${isSaved ? 'fill-destructive text-destructive' : ''}`} />
+                  <Button 
+                    variant="outline" 
+                    className="w-full" 
+                    onClick={handleSave}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Heart className={`h-4 w-4 mr-2 ${isSaved ? 'fill-destructive text-destructive' : ''}`} />
+                    )}
                     {isSaved ? 'Saved' : 'Save Profile'}
                   </Button>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import WorkerCard from '@/components/workers/WorkerCard';
@@ -6,9 +6,10 @@ import FilterSidebar from '@/components/workers/FilterSidebar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { mockWorkers } from '@/data/mockData';
-import { FilterState } from '@/types';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { workerService } from '@/lib/database';
+import { FilterState, WorkerProfile } from '@/types';
+import { Search, SlidersHorizontal, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const defaultFilters: FilterState = {
   search: '',
@@ -32,49 +33,57 @@ const WorkerSearchPage: React.FC = () => {
     search: initialSearch,
     skills: initialSkills,
   });
+  const [workers, setWorkers] = useState<WorkerProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredWorkers = useMemo(() => {
-    return mockWorkers.filter(worker => {
-      // Search
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const matchesSearch = 
-          worker.name.toLowerCase().includes(searchLower) ||
-          worker.headline.toLowerCase().includes(searchLower) ||
-          worker.skills.some(s => s.toLowerCase().includes(searchLower));
-        if (!matchesSearch) return false;
-      }
-
-      // Country
-      if (filters.country && filters.country !== 'all' && worker.countryCode !== filters.country) return false;
-
-      // Rate
-      if (worker.hourlyRateMin > filters.maxRate || worker.hourlyRateMax < filters.minRate) return false;
-
-      // Hours
-      if (worker.availabilityHours < filters.minHours || worker.availabilityHours > filters.maxHours) return false;
-
-      // Verified
-      if (filters.verifiedOnly && !worker.isVerified) return false;
-
-      // Last active
-      if (filters.lastActive !== 'any') {
-        const lastActive = new Date(worker.lastActive).getTime();
-        const now = Date.now();
-        if (filters.lastActive === 'today' && now - lastActive > 24 * 60 * 60 * 1000) return false;
-        if (filters.lastActive === 'week' && now - lastActive > 7 * 24 * 60 * 60 * 1000) return false;
-        if (filters.lastActive === 'month' && now - lastActive > 30 * 24 * 60 * 60 * 1000) return false;
-      }
-
-      // Skills
-      if (filters.skills.length > 0) {
-        const hasSkill = filters.skills.some(skill => worker.skills.includes(skill));
-        if (!hasSkill) return false;
-      }
-
-      return true;
-    });
+  useEffect(() => {
+    loadWorkers();
   }, [filters]);
+
+  const loadWorkers = async () => {
+    try {
+      setIsLoading(true);
+      const data = await workerService.getAll({
+        country: filters.country,
+        minRate: filters.minRate,
+        maxRate: filters.maxRate,
+        minHours: filters.minHours,
+        maxHours: filters.maxHours,
+        verifiedOnly: filters.verifiedOnly,
+        skills: filters.skills,
+        search: filters.search,
+        limit: 50,
+      });
+
+      // Convert database format to app format
+      const convertedWorkers: WorkerProfile[] = data.map(w => ({
+        id: w.id,
+        userId: w.user_id,
+        name: w.name,
+        avatar: w.avatar_url || undefined,
+        country: w.country,
+        countryCode: w.country_code,
+        headline: w.headline,
+        skills: w.skills,
+        hourlyRateMin: Number(w.hourly_rate_min),
+        hourlyRateMax: Number(w.hourly_rate_max),
+        availabilityHours: w.availability_hours,
+        availabilityType: w.availability_type,
+        bio: w.bio,
+        lastActive: w.last_active,
+        isVerified: w.is_verified,
+        reviewCount: w.review_count,
+        averageRating: Number(w.average_rating),
+      }));
+
+      setWorkers(convertedWorkers);
+    } catch (error) {
+      console.error('Error loading workers:', error);
+      toast.error('Failed to load workers');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -84,7 +93,7 @@ const WorkerSearchPage: React.FC = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Find Remote Workers</h1>
           <p className="text-muted-foreground">
-            Browse {mockWorkers.length}+ skilled professionals from around the world
+            Browse skilled professionals from around the world
           </p>
         </div>
 
@@ -134,13 +143,17 @@ const WorkerSearchPage: React.FC = () => {
 
             {/* Results Count */}
             <p className="text-sm text-muted-foreground mb-4">
-              Showing {filteredWorkers.length} worker{filteredWorkers.length !== 1 ? 's' : ''}
+              {isLoading ? 'Loading...' : `Showing ${workers.length} worker${workers.length !== 1 ? 's' : ''}`}
             </p>
 
             {/* Results Grid */}
-            {filteredWorkers.length > 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : workers.length > 0 ? (
               <div className="grid gap-4">
-                {filteredWorkers.map(worker => (
+                {workers.map(worker => (
                   <WorkerCard key={worker.id} worker={worker} />
                 ))}
               </div>

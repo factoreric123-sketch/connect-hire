@@ -15,13 +15,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
+import { jobService } from '@/lib/database';
 import { SKILLS, COUNTRIES } from '@/data/mockData';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PostJobPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, employerProfile } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -45,6 +47,18 @@ const PostJobPage: React.FC = () => {
     );
   }
 
+  if (!employerProfile) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container py-12 text-center">
+          <h1 className="text-2xl font-bold mb-4">Only employers can post jobs</h1>
+          <Button onClick={() => navigate('/workers')}>Browse Workers</Button>
+        </div>
+      </div>
+    );
+  }
+
   const addSkill = (skill: string) => {
     if (!formData.skills.includes(skill)) {
       setFormData({ ...formData, skills: [...formData.skills, skill] });
@@ -55,7 +69,7 @@ const PostJobPage: React.FC = () => {
     setFormData({ ...formData, skills: formData.skills.filter(s => s !== skill) });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.title || !formData.description || formData.skills.length === 0) {
@@ -63,9 +77,28 @@ const PostJobPage: React.FC = () => {
       return;
     }
 
-    // In a real app, this would save to the database
-    toast.success('Job posted successfully!');
-    navigate('/jobs');
+    try {
+      setIsSubmitting(true);
+      await jobService.create({
+        employer_id: employerProfile.id,
+        title: formData.title,
+        description: formData.description,
+        skills: formData.skills,
+        hourly_rate_min: formData.hourlyRateMin ? parseFloat(formData.hourlyRateMin) : 1,
+        hourly_rate_max: formData.hourlyRateMax ? parseFloat(formData.hourlyRateMax) : 3,
+        availability_hours: formData.availabilityHours ? parseInt(formData.availabilityHours) : 8,
+        country_preference: formData.countryPreference || null,
+        is_active: true,
+      });
+
+      toast.success('Job posted successfully!');
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error posting job:', error);
+      toast.error('Failed to post job');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -94,6 +127,7 @@ const PostJobPage: React.FC = () => {
                   placeholder="e.g., Virtual Assistant for E-commerce"
                   value={formData.title}
                   onChange={e => setFormData({ ...formData, title: e.target.value })}
+                  required
                 />
               </div>
 
@@ -105,6 +139,7 @@ const PostJobPage: React.FC = () => {
                   rows={6}
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  required
                 />
               </div>
 
@@ -184,7 +219,7 @@ const PostJobPage: React.FC = () => {
                     <SelectValue placeholder="Open to all countries" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Open to all countries</SelectItem>
+                    <SelectItem value="">Open to all countries</SelectItem>
                     {COUNTRIES.map(country => (
                       <SelectItem key={country.code} value={country.name}>
                         {country.flag} {country.name}
@@ -194,8 +229,15 @@ const PostJobPage: React.FC = () => {
                 </Select>
               </div>
 
-              <Button type="submit" className="w-full" size="lg">
-                Post Job
+              <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Posting...
+                  </>
+                ) : (
+                  'Post Job'
+                )}
               </Button>
             </form>
           </CardContent>
