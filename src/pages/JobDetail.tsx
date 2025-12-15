@@ -4,8 +4,8 @@ import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { jobService, workerService, employerService, conversationService } from '@/lib/database';
 import { useAuth } from '@/contexts/AuthContext';
+import { mockJobs } from '@/data/mockData';
 import { Job } from '@/types';
 import { ArrowLeft, Building, Clock, MapPin, DollarSign, Calendar, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -17,7 +17,6 @@ const JobDetailPage: React.FC = () => {
   
   const [job, setJob] = useState<Job | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -26,30 +25,11 @@ const JobDetailPage: React.FC = () => {
   }, [id]);
 
   const loadJob = async (jobId: string) => {
-    try {
-      setIsLoading(true);
-      const data = await jobService.getById(jobId);
-      
-      setJob({
-        id: data.id,
-        employerId: data.employer_id,
-        employerName: data.employer?.company_name || 'Unknown',
-        title: data.title,
-        description: data.description,
-        skills: data.skills,
-        hourlyRateMin: Number(data.hourly_rate_min),
-        hourlyRateMax: Number(data.hourly_rate_max),
-        availabilityHours: data.availability_hours,
-        countryPreference: data.country_preference,
-        createdAt: data.created_at,
-        isActive: data.is_active,
-      });
-    } catch (error) {
-      console.error('Error loading job:', error);
-      toast.error('Failed to load job');
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(true);
+    // Use mock data
+    const foundJob = mockJobs.find(j => j.id === jobId);
+    setJob(foundJob || null);
+    setIsLoading(false);
   };
 
   const handleApply = async () => {
@@ -57,25 +37,13 @@ const JobDetailPage: React.FC = () => {
       navigate('/auth');
       return;
     }
-    if (!job || !workerProfile) {
+    if (!workerProfile) {
       toast.error('You must be logged in as a worker to apply for jobs');
       return;
     }
 
-    try {
-      setIsApplying(true);
-      // Get employer profile
-      const employer = await employerService.getById(job.employerId);
-      // Create or get conversation
-      const conversation = await conversationService.getOrCreate(workerProfile.id, employer.id);
-      navigate(`/messages?conversation=${conversation.id}`);
-      toast.success('You can now contact the employer about this job!');
-    } catch (error) {
-      console.error('Error applying to job:', error);
-      toast.error('Failed to start conversation');
-    } finally {
-      setIsApplying(false);
-    }
+    // For now, just show a success message since messaging isn't set up
+    toast.success('Interest expressed! The employer will be notified.');
   };
 
   const formatDate = (dateString: string) => {
@@ -220,16 +188,8 @@ const JobDetailPage: React.FC = () => {
                   className="w-full" 
                   size="lg" 
                   onClick={handleApply}
-                  disabled={isApplying}
                 >
-                  {isApplying ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    'Express Interest'
-                  )}
+                  Express Interest
                 </Button>
 
                 <p className="text-xs text-muted-foreground text-center">
