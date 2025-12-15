@@ -12,7 +12,7 @@ import { Search, SlidersHorizontal } from 'lucide-react';
 
 const defaultFilters: FilterState = {
   search: '',
-  country: '',
+  country: 'all',
   minRate: 0,
   maxRate: 10,
   minHours: 0,
@@ -46,7 +46,7 @@ const WorkerSearchPage: React.FC = () => {
       }
 
       // Country
-      if (filters.country && worker.countryCode !== filters.country) return false;
+      if (filters.country && filters.country !== 'all' && worker.countryCode !== filters.country) return false;
 
       // Rate
       if (worker.hourlyRateMin > filters.maxRate || worker.hourlyRateMax < filters.minRate) return false;

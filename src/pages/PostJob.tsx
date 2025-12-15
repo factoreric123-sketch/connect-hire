@@ -184,7 +184,7 @@ const PostJobPage: React.FC = () => {
                     <SelectValue placeholder="Open to all countries" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Open to all countries</SelectItem>
+                    <SelectItem value="all">Open to all countries</SelectItem>
                     {COUNTRIES.map(country => (
                       <SelectItem key={country.code} value={country.name}>
                         {country.flag} {country.name}
