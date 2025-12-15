@@ -1,0 +1,170 @@
+import React from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import Header from '@/components/layout/Header';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mockJobs } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { ArrowLeft, Building, Clock, MapPin, DollarSign, Calendar } from 'lucide-react';
+import { toast } from 'sonner';
+
+const JobDetailPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  const job = mockJobs.find(j => j.id === id);
+
+  if (!job) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container py-12 text-center">
+          <h1 className="text-2xl font-bold mb-4">Job not found</h1>
+          <Button onClick={() => navigate('/jobs')}>Back to Jobs</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const handleApply = () => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    toast.success('Interest expressed! The employer has been notified.');
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      
+      <div className="container py-8">
+        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Jobs
+        </Button>
+
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                  <Building className="h-4 w-4" />
+                  <span>{job.employerName}</span>
+                </div>
+                
+                <h1 className="text-3xl font-bold text-foreground mb-4">{job.title}</h1>
+
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {job.skills.map(skill => (
+                    <Badge key={skill} variant="secondary">
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-6 text-sm">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-primary" />
+                    <span className="font-medium">${job.hourlyRateMin}-${job.hourlyRateMax}/hr</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span>{job.availabilityHours} hours/day</span>
+                  </div>
+                  {job.countryPreference && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span>{job.countryPreference}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>Posted {formatDate(job.createdAt)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Job Description</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground whitespace-pre-wrap">{job.description}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Required Skills</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {job.skills.map(skill => (
+                    <Badge key={skill} variant="outline" className="text-sm py-1.5 px-3">
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            <Card className="sticky top-24">
+              <CardContent className="p-6 space-y-4">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-primary">
+                    ${job.hourlyRateMin}-${job.hourlyRateMax}
+                  </p>
+                  <p className="text-sm text-muted-foreground">per hour</p>
+                </div>
+
+                <div className="space-y-3 py-4 border-y border-border">
+                  <div className="flex items-center gap-3 text-sm">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span>{job.availabilityHours} hours/day required</span>
+                  </div>
+                  {job.countryPreference ? (
+                    <div className="flex items-center gap-3 text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span>Preferred: {job.countryPreference}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span>Open to all countries</span>
+                    </div>
+                  )}
+                </div>
+
+                <Button className="w-full" size="lg" onClick={handleApply}>
+                  Express Interest
+                </Button>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  All hiring arrangements are made directly between parties off-platform
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default JobDetailPage;
