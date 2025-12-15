@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 
 const PostJobPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, employerProfile } = useAuth();
+  const { user, employerProfile, isLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -34,6 +34,18 @@ const PostJobPage: React.FC = () => {
     availabilityHours: '',
     countryPreference: '',
   });
+
+  // Show loading state while auth is loading
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container py-12 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -77,9 +89,15 @@ const PostJobPage: React.FC = () => {
       return;
     }
 
+    if (!employerProfile || !employerProfile.id) {
+      toast.error('Unable to post job. Please refresh and try again.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      await jobService.create({
+      
+      const newJob = await jobService.create({
         employer_id: employerProfile.id,
         title: formData.title,
         description: formData.description,
@@ -91,11 +109,17 @@ const PostJobPage: React.FC = () => {
         is_active: true,
       });
 
+      console.log('Job created successfully:', newJob);
       toast.success('Job posted successfully!');
-      navigate('/dashboard');
-    } catch (error) {
+      
+      // Wait a moment before navigating to ensure the job is saved
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
+    } catch (error: any) {
       console.error('Error posting job:', error);
-      toast.error('Failed to post job');
+      const errorMessage = error?.message || 'Failed to post job. Please check your Supabase configuration.';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
