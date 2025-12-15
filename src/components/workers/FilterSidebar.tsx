@@ -35,7 +35,7 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange, onRese
   };
 
   const hasActiveFilters = 
-    filters.country !== '' ||
+    filters.country !== 'all' ||
     filters.minRate > 0 ||
     filters.maxRate < 10 ||
     filters.minHours > 0 ||
@@ -64,7 +64,7 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ filters, onChange, onRese
             <SelectValue placeholder="Any country" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Any country</SelectItem>
+            <SelectItem value="all">Any country</SelectItem>
             {COUNTRIES.map(country => (
               <SelectItem key={country.code} value={country.code}>
                 {country.flag} {country.name}

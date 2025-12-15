@@ -15,7 +15,7 @@ import { Search } from 'lucide-react';
 
 const JobBoardPage: React.FC = () => {
   const [search, setSearch] = useState('');
-  const [skillFilter, setSkillFilter] = useState('');
+  const [skillFilter, setSkillFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
 
   const filteredJobs = useMemo(() => {
@@ -31,7 +31,7 @@ const JobBoardPage: React.FC = () => {
       );
     }
 
-    if (skillFilter) {
+    if (skillFilter && skillFilter !== 'all') {
       jobs = jobs.filter(job => job.skills.includes(skillFilter));
     }
 
@@ -76,7 +76,7 @@ const JobBoardPage: React.FC = () => {
               <SelectValue placeholder="All Skills" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Skills</SelectItem>
+              <SelectItem value="all">All Skills</SelectItem>
               {SKILLS.map(skill => (
                 <SelectItem key={skill} value={skill}>{skill}</SelectItem>
               ))}
@@ -102,7 +102,7 @@ const JobBoardPage: React.FC = () => {
               key={skill}
               variant={skillFilter === skill ? 'default' : 'outline'}
               className="cursor-pointer"
-              onClick={() => setSkillFilter(skillFilter === skill ? '' : skill)}
+              onClick={() => setSkillFilter(skillFilter === skill ? 'all' : skill)}
             >
               {skill}
             </Badge>
