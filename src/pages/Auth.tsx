@@ -39,34 +39,29 @@ const AuthPage: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    try {
-      let success: boolean;
-      
-      if (mode === 'login') {
-        success = await login(formData.email, formData.password);
-      } else {
-        if (!formData.name) {
-          toast.error('Please enter your name');
-          setIsLoading(false);
-          return;
-        }
-        if (formData.password.length < 6) {
-          toast.error('Password must be at least 6 characters');
-          setIsLoading(false);
-          return;
-        }
-        success = await signup(formData.email, formData.password, userType, formData.name);
-      }
-
-      if (success && mode === 'login') {
-        navigate('/dashboard');
-      }
-    } catch (error) {
-      console.error('Auth error:', error);
-      toast.error('An error occurred. Please try again.');
-    } finally {
+    if (mode === 'signup' && !formData.name.trim()) {
+      toast.error('Please enter your name');
       setIsLoading(false);
+      return;
     }
+    
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      setIsLoading(false);
+      return;
+    }
+
+    if (mode === 'login') {
+      await login(formData.email, formData.password);
+      toast.success('Welcome back!');
+      navigate('/dashboard');
+    } else {
+      await signup(formData.email, formData.password, userType, formData.name);
+      toast.success('Account created successfully!');
+      navigate('/dashboard');
+    }
+    
+    setIsLoading(false);
   };
 
   if (authLoading) {
